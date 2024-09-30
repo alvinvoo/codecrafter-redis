@@ -1,9 +1,14 @@
 package main
 
 import (
+	"bufio"
 	"fmt"
+	"io"
 	"net"
 	"os"
+	"time"
+
+	"github.com/codecrafters-io/redis-starter-go/app/util"
 )
 
 // Ensures gofmt doesn't remove the "net" and "os" imports in stage 1 (feel free to remove this!)
@@ -39,15 +44,39 @@ func handleConnection(conn net.Conn) {
 		tcpConn.SetKeepAlive(true)
 		tcpConn.SetKeepAlivePeriod(30)
 
-		// reader := bufio.NewReader(tcpConn)
-		// request, err := reader.ReadString('\n')
+		reader := bufio.NewReader(tcpConn)
+		// Set a read deadline of 2 seconds for each command
+		tcpConn.SetReadDeadline(time.Now().Add(2 * time.Second))
+		for {
+			request, err := reader.ReadString('\n') // will block (stuck) until the delimiter is found
+			util.DebugLog("Request", request)
 
-		response := "+PONG\r\n"
+			if err == io.EOF {
+				util.DebugLog("Connection closed by client")
+				break
+			}
+			if nerr, ok := err.(net.Error); ok && nerr.Timeout() {
+				util.DebugLog("Timeout on reading request")
+				break
+			}
+			// catch all error
+			if err != nil {
+				util.DebugLog("Error reading request", err)
+				break
+			}
 
-		_, err := tcpConn.Write([]byte(response))
-		if err != nil {
-			fmt.Println("Error writing response: ", err.Error())
-			os.Exit(1)
+			// ignore RESP prefix first
+			if request[0] == '*' || request[0] == '$' {
+				continue
+			}
+
+			response := "+PONG\r\n"
+
+			_, err = tcpConn.Write([]byte(response))
+			if err != nil {
+				fmt.Println("Error writing response: ", err.Error())
+				os.Exit(1)
+			}
 		}
 	}
 }
