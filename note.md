@@ -27,7 +27,7 @@ Need to check what's the difference and how is it able to maintain the connectio
 guess1: Is it becoz i never move the start end? That's y it get's "Stucked" if there's no timeout?
 *2\r\n$7\r\nCOMMAND\r\n$4\r\nDOCS\r\n*1\r\n$7\r\nCOMMAND\r\n
 
-
+Investigation bits:
 bufio io.Reader.Read
 // Read reads data into p.
 // It returns the number of bytes read into p.
@@ -40,26 +40,17 @@ No idea what the "underlying [Reader]", cant find it on code, (is it directly on
  TCPConn
 ** Implicit qns is, HOW does it know when to _stop_? (as percisely one command section?)
 
-
-- second time is lesser, 4069, coz minus 27 bytes
-
-
-problem FD
-*internal/poll.FD {fdmu: internal/poll.fdMutex {state: 10, rsema: 0, wsema: 0}, Sysfd: 5, SysFile: internal/poll.SysFile {iovecs: *[]syscall.Iovec nil}, pd: internal/poll.pollDesc {runtimeCtx: 139728111398280}, csema: 0, isBlocking: 0, IsStream: true, ZeroReadIsEOF: true, isFile: false}
-
-
-EWOULDBLOCK (11) = 0xb
- - Something else (another thread) has drained the input buffer
- - A receive timeout was set on the socket and it expired without data being received
- - your thread would have to block in order to do that 
-
-
-*internal/poll.FD {fdmu: internal/poll.fdMutex {state: 10, rsema: 0, wsema: 0}, Sysfd: 5, SysFile: internal/poll.SysFile {iovecs: *[]syscall.Iovec nil}, pd: internal/poll.pollDesc {runtimeCtx: 140282157743448}, csema: 0, isBlocking: 0, IsStream: true, ZeroReadIsEOF: true, isFile: false}
-
-
-LISTEN          0               4096                                        *:6380                                        *:*              ESTAB           27              0                          [::ffff:127.0.0.1]:6380                       [::ffff:127.0.0.1]:46402
-
-
 ONCE the net.TCPConn _writes_ the next set of bytes is _ready_ in the recv-Q
--- i think due to the Protocol is waiting for RESP reply?
+- i think due to the Protocol is waiting for RESP reply?
+- SHOULD BE due to client is waiting for response before sending again?
  https://redis.io/docs/latest/develop/reference/protocol-spec/#request-response-model
+
+ ### Useful
+ To check opened sockets
+ `ss -s`
+  - get socket summaries
+ `ss -t -a`
+  - filter by TCP, VERY useful to see RECV and SEND Queue
+  - "Everything in Linux is a file"
+    - https://en.wikipedia.org/wiki/Everything_is_a_file
+    - that means data stream are handled as "file descriptors"
