@@ -24,9 +24,8 @@ func (e *errProtocol) Error() string {
 
 // Writer allows for writing RESP messages.
 type Writer struct {
-	// without flushing, seems like cannot read next batch of input
-	// is there a conflict between STD and this?
 	w io.Writer
+	b []byte
 }
 
 // NewWriter creates a new RESP writer.
@@ -37,8 +36,26 @@ func NewWriter(wr io.Writer) *Writer {
 }
 
 func (wr *Writer) Flush() error {
-	_, err := wr.w.Write([]byte{'\000'})
+	// TODO: do we need to store `err` in Writer?
+	_, err := wr.w.Write(wr.b)
+	wr.b = nil
 	return err
+}
+
+func (wr *Writer) WriteError(msg string) {
+	wr.b = AppendError(wr.b, msg)
+}
+
+func (wr *Writer) WriteString(msg string) {
+	wr.b = AppendString(wr.b, msg)
+}
+
+func (wr *Writer) WriteBulk(msg []byte) {
+	wr.b = AppendBulk(wr.b, msg)
+}
+
+func (wr *Writer) WriteBulkString(msg string) {
+	wr.b = AppendBulkString(wr.b, msg)
 }
 
 type Command struct {

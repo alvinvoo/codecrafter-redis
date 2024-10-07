@@ -8,36 +8,71 @@ import (
 	"github.com/codecrafters-io/redis-starter-go/app/util"
 )
 
+type Conn interface {
+	RemoteAddr() string
+	Close() error
+	WriteError(msg string)
+	WriteString(str string)
+	WriteBulk(bulk []byte)
+	WriteBulkString(bulk string)
+}
+
 type conn struct {
 	conn net.Conn
 	rd   *Reader
 	wr   *Writer
 }
 
+// implement Conn interface
+func (c *conn) Close() error {
+	c.wr.Flush()
+	return c.conn.Close()
+}
+
+func (c *conn) RemoteAddr() string {
+	return c.conn.RemoteAddr().String()
+}
+
+func (c *conn) WriteError(msg string) {
+	c.wr.WriteError(msg)
+}
+
+func (c *conn) WriteString(msg string) {
+	c.wr.WriteString(msg)
+}
+
+func (c *conn) WriteBulk(msg []byte) {
+	c.wr.WriteBulk(msg)
+}
+
+func (c *conn) WriteBulkString(msg string) {
+	c.wr.WriteBulkString(msg)
+}
+
 type Server struct {
 	net     string
 	laddr   string
-	handler func(conn net.Conn, cmd Command)
-	accept  func(conn net.Conn) bool
-	closed  func(conn net.Conn, err error)
+	handler func(conn Conn, cmd Command)
+	accept  func(conn Conn) bool
+	closed  func(conn Conn, err error)
 	conn    *conn // KISS; only ONE connection for now
 	ln      net.Listener
 }
 
 // ListenAndServeTLS creates a new TLS server and binds to addr configured on "tcp" network net.
 func ListenAndServeTLS(addr string,
-	handler func(conn net.Conn, cmd Command),
-	accept func(conn net.Conn) bool,
-	closed func(conn net.Conn, err error),
+	handler func(conn Conn, cmd Command),
+	accept func(conn Conn) bool,
+	closed func(conn Conn, err error),
 ) error {
 	return NewServerNetwork("tcp", addr, handler, accept, closed).ListenAndServe()
 }
 
 func NewServerNetwork(
 	net, laddr string,
-	handler func(conn net.Conn, cmd Command),
-	accept func(conn net.Conn) bool,
-	closed func(conn net.Conn, err error),
+	handler func(conn Conn, cmd Command),
+	accept func(conn Conn) bool,
+	closed func(conn Conn, err error),
 ) *Server {
 	if handler == nil {
 		panic("handler is nil")
@@ -80,7 +115,7 @@ func (s *Server) serve() error {
 
 		s.conn = c
 
-		s.accept(c.conn)
+		s.accept(c)
 
 		go s.handle()
 	}
@@ -97,7 +132,7 @@ func (s *Server) handle() {
 			if err == io.EOF { // if EOF, just ignore
 				err = nil
 			}
-			s.closed(c.conn, err)
+			s.closed(c, err)
 		}
 	}()
 
@@ -111,6 +146,12 @@ func (s *Server) handle() {
 			// there should only be ONE command at a time
 			cmds, err := c.rd.readCommands()
 			if err != nil {
+				if err, ok := err.(*errProtocol); ok {
+					// All protocol errors should attempt a response to
+					// the client. Ignore write errors.
+					c.wr.WriteError("ERR " + err.Error())
+					c.wr.Flush()
+				}
 				return err
 			}
 
@@ -128,7 +169,11 @@ func (s *Server) handle() {
 				} else {
 					cmds = cmds[1:]
 				}
-				s.handler(c.conn, cmd)
+				s.handler(c, cmd)
+			}
+
+			if err := c.wr.Flush(); err != nil {
+				return err
 			}
 		}
 	}()

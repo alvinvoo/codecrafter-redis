@@ -1,9 +1,8 @@
 package main
 
 import (
+	"fmt"
 	"log"
-	"net"
-	"os"
 	"strings"
 
 	"github.com/codecrafters-io/redis-starter-go/app/redis"
@@ -15,34 +14,27 @@ func main() {
 	go log.Printf("started server at %s", addr)
 
 	err := redis.ListenAndServeTLS(addr,
-		func(conn net.Conn, cmd redis.Command) {
+		func(conn redis.Conn, cmd redis.Command) {
 			cmdTxt := strings.ToLower(string(cmd.Args[0]))
 			switch cmdTxt {
 			default:
-				response := "-error\r\n"
-
-				_, err := conn.Write([]byte(response))
-				if err != nil {
-					log.Println("Error writing response: ", err.Error())
-					os.Exit(1)
-				}
-
-				log.Printf("Error unknown command: %s \n", cmdTxt)
+				conn.WriteError(fmt.Sprintf("Error unknwon command: %s", cmdTxt))
 			case "ping":
-				response := "+PONG\r\n"
-
-				_, err := conn.Write([]byte(response))
-				if err != nil {
-					log.Println("Error writing response: ", err.Error())
-					os.Exit(1)
+				conn.WriteString("PONG")
+			case "echo":
+				reply := cmd.Args[1]
+				if len(reply) == 0 {
+					conn.WriteError("Invalid ECHO arg length")
 				}
+
+				conn.WriteBulk(reply)
 			}
 		},
-		func(conn net.Conn) bool {
+		func(conn redis.Conn) bool {
 			log.Printf("accept: %s", conn.RemoteAddr())
 			return true
 		},
-		func(conn net.Conn, err error) {
+		func(conn redis.Conn, err error) {
 			log.Printf("closed: %s, err: %v", conn.RemoteAddr(), err)
 		})
 
