@@ -54,3 +54,7 @@ func AppendBulkString(b []byte, bulk string) []byte {
 	b = append(b, bulk...)
 	return append(b, '\r', '\n')
 }
+
+func AppendNull(b []byte) []byte {
+	return append(b, '$', '-', '1', '\r', '\n')
+}

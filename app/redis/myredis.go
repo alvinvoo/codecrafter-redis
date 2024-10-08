@@ -58,6 +58,14 @@ func (wr *Writer) WriteBulkString(msg string) {
 	wr.b = AppendBulkString(wr.b, msg)
 }
 
+func (wr *Writer) WriteNull() {
+	wr.b = AppendNull(wr.b)
+}
+
+func (wr *Writer) WriteOK() {
+	wr.b = AppendOK(wr.b)
+}
+
 type Command struct {
 	Raw  []byte
 	Args [][]byte // each command can have multiple args

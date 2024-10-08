@@ -15,6 +15,8 @@ type Conn interface {
 	WriteString(str string)
 	WriteBulk(bulk []byte)
 	WriteBulkString(bulk string)
+	WriteNull()
+	WriteOK()
 }
 
 type conn struct {
@@ -47,6 +49,14 @@ func (c *conn) WriteBulk(msg []byte) {
 
 func (c *conn) WriteBulkString(msg string) {
 	c.wr.WriteBulkString(msg)
+}
+
+func (c *conn) WriteNull() {
+	c.wr.WriteNull()
+}
+
+func (c *conn) WriteOK() {
+	c.wr.WriteOK()
 }
 
 type Server struct {
