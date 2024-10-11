@@ -11,6 +11,10 @@
       "mode": "debug",
       "program": "${workspaceFolder}/app",
       "args": [
+        "--dir",
+        "/tmp/redis-files",
+        "--dbfilename",
+        "dump.rdb"
       ],
       "env": {
         "DEBUG": "true"

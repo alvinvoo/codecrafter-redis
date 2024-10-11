@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"log"
+	"os"
 	"strings"
 	"sync"
 	"time"
@@ -27,6 +28,10 @@ func main() {
 
 	items := make(map[string]store)
 	mu := sync.RWMutex{}
+
+	if len(os.Args) > 1 {
+		redis.SetConfig(os.Args[1:])
+	}
 
 	err := redis.ListenAndServeTLS(addr,
 		func(conn redis.Conn, cmd redis.Command) {
@@ -104,6 +109,33 @@ func main() {
 					}
 
 					conn.WriteBulk(val.data)
+				}
+			case "config":
+				if len(cmd.Args) != 3 {
+					conn.WriteError("Invalid CONFIG arg length")
+					return
+				}
+
+				action := strings.ToLower(string(cmd.Args[1]))
+
+				if action != "get" {
+					conn.WriteError("Only CONFIG GET supported for now")
+					return
+				}
+
+				switch strings.ToLower(string(cmd.Args[2])) {
+				default:
+					conn.WriteError("Unrecognized config key")
+				case "dir":
+					config := redis.GetConfig()
+					conn.WriteArray([]string{
+						"dir", config.Dir,
+					})
+				case "dbfilename":
+					config := redis.GetConfig()
+					conn.WriteArray([]string{
+						"dbfilename", config.Dbfilename,
+					})
 				}
 			}
 		},

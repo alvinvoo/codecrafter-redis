@@ -1,6 +1,7 @@
 package redis
 
 import (
+	"slices"
 	"strconv"
 	"strings"
 )
@@ -14,6 +15,19 @@ func stripNewlines(s string) string {
 		}
 	}
 	return s
+}
+
+func convertIntToBytes(n int) []byte {
+	var retB []byte
+	for n != 0 {
+		l := byte('0' + n%10)
+
+		retB = append(retB, l)
+		n = n / 10
+	}
+
+	slices.Reverse(retB)
+	return retB
 }
 
 // appendPrefix will append a "$3\r\n" style redis prefix for a message.
@@ -33,6 +47,18 @@ func AppendError(b []byte, s string) []byte {
 // AppendOK appends a Redis protocol OK to the input bytes.
 func AppendOK(b []byte) []byte {
 	return append(b, '+', 'O', 'K', '\r', '\n')
+}
+
+func AppendArray(b []byte, msgs []string) []byte {
+	b = append(b, '*')
+	b = append(b, convertIntToBytes(len(msgs))...)
+	b = append(b, '\r', '\n')
+
+	for _, msg := range msgs {
+		b = AppendBulkString(b, msg)
+	}
+
+	return b
 }
 
 // AppendString appends a Redis protocol string to the input bytes.

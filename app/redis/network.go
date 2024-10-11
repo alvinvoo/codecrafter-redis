@@ -12,6 +12,7 @@ type Conn interface {
 	RemoteAddr() string
 	Close() error
 	WriteError(msg string)
+	WriteArray(msgs []string)
 	WriteString(str string)
 	WriteBulk(bulk []byte)
 	WriteBulkString(bulk string)
@@ -37,6 +38,10 @@ func (c *conn) RemoteAddr() string {
 
 func (c *conn) WriteError(msg string) {
 	c.wr.WriteError(msg)
+}
+
+func (c *conn) WriteArray(msgs []string) {
+	c.wr.WriteArray(msgs)
 }
 
 func (c *conn) WriteString(msg string) {

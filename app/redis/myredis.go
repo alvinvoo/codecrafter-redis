@@ -46,6 +46,10 @@ func (wr *Writer) WriteError(msg string) {
 	wr.b = AppendError(wr.b, msg)
 }
 
+func (wr *Writer) WriteArray(msgs []string) {
+	wr.b = AppendArray(wr.b, msgs)
+}
+
 func (wr *Writer) WriteString(msg string) {
 	wr.b = AppendString(wr.b, msg)
 }
