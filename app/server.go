@@ -8,6 +8,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/codecrafters-io/redis-starter-go/app/rdb"
 	"github.com/codecrafters-io/redis-starter-go/app/redis"
 )
 
@@ -23,6 +24,12 @@ type store struct {
 	option *option
 }
 
+func maybeFatal(err error) {
+	if err != nil {
+		log.Fatal(err)
+	}
+}
+
 func main() {
 	go log.Printf("started server at %s", addr)
 
@@ -31,6 +38,14 @@ func main() {
 
 	if len(os.Args) > 1 {
 		redis.SetConfig(os.Args[1:])
+		dbFilePath, err := redis.GetRdbPath()
+		maybeFatal(err)
+
+		f, err := os.Open(dbFilePath)
+		maybeFatal(err)
+
+		err = rdb.Decode(f, &rdb.Store{})
+		maybeFatal(err)
 	}
 
 	err := redis.ListenAndServeTLS(addr,
@@ -147,7 +162,5 @@ func main() {
 			log.Printf("closed: %s, err: %v", conn.RemoteAddr(), err)
 		})
 
-	if err != nil {
-		log.Fatal(err)
-	}
+	maybeFatal(err)
 }

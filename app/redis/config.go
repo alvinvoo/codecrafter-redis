@@ -1,6 +1,10 @@
 package redis
 
-import "fmt"
+import (
+	"fmt"
+
+	"github.com/codecrafters-io/redis-starter-go/app/util"
+)
 
 type Config struct {
 	Dir        string
@@ -39,4 +43,21 @@ func SetConfig(args []string) error {
 
 func GetConfig() Config {
 	return *cfg // would this return a new copy?
+}
+
+func GetRdbPath() (string, error) {
+	if cfg == nil {
+		return "", fmt.Errorf("no config available yet")
+	}
+
+	var fullPath string
+	if cfg.Dir[len(cfg.Dir)-1] != '/' {
+		fullPath = fmt.Sprintf("%s/%s", cfg.Dir, cfg.Dbfilename)
+	} else {
+		fullPath = cfg.Dir + cfg.Dbfilename
+	}
+
+	util.DebugLog("rdb filepath: ", fullPath)
+
+	return fullPath, nil
 }
