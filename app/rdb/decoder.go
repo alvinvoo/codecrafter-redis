@@ -59,6 +59,10 @@ func (d *decode) checkHeader() error {
 	return nil
 }
 
+func (d *decode) readLength() {
+	// TODO
+}
+
 // Decode parses a RDB file from r and calls the decode hooks on d.
 func Decode(r io.Reader, d Decoder) error {
 	decoder := &decode{d, make([]byte, 8), bufio.NewReader(r)}

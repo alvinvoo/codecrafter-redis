@@ -4,25 +4,15 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strconv"
 	"strings"
 	"sync"
-	"time"
 
 	"github.com/codecrafters-io/redis-starter-go/app/rdb"
 	"github.com/codecrafters-io/redis-starter-go/app/redis"
 )
 
 const addr = ":6379"
-
-type option struct {
-	storedAt  time.Time
-	expiresIn time.Duration
-}
-
-type store struct {
-	data   []byte
-	option *option
-}
 
 func maybeFatal(err error) {
 	if err != nil {
@@ -33,7 +23,6 @@ func maybeFatal(err error) {
 func main() {
 	go log.Printf("started server at %s", addr)
 
-	items := make(map[string]store)
 	mu := sync.RWMutex{}
 
 	if len(os.Args) > 1 {
@@ -44,7 +33,7 @@ func main() {
 		f, err := os.Open(dbFilePath)
 		maybeFatal(err)
 
-		err = rdb.Decode(f, &rdb.Store{})
+		err = rdb.Decode(f, &rdb.StoreWorker{})
 		maybeFatal(err)
 	}
 
@@ -69,7 +58,7 @@ func main() {
 					return
 				}
 
-				var opt *option
+				var expiry int64 = 0
 				if len(cmd.Args) > 3 {
 					// process options
 					switch strings.ToLower(string(cmd.Args[3])) {
@@ -80,25 +69,18 @@ func main() {
 							conn.WriteError("SET arg px needs duration")
 						}
 
-						duration, err := time.ParseDuration(string(cmd.Args[4]) + "ms")
+						var err error
+						expiry, err = strconv.ParseInt(string(cmd.Args[4]), 10, 64)
 
 						if err != nil {
-							conn.WriteError(fmt.Sprintf("SET arg px parse duration error %s", err.Error()))
-						}
-
-						opt = &option{
-							storedAt:  time.Now(),
-							expiresIn: duration,
+							conn.WriteError(fmt.Sprintf("SET arg px parse expiry error %s", err.Error()))
 						}
 					}
-
 				}
 
 				mu.Lock()
-				items[string(cmd.Args[1])] = store{
-					data:   cmd.Args[2],
-					option: opt,
-				}
+				err := rdb.StoreRDB(string(cmd.Args[1]), cmd.Args[2], expiry)
+				maybeFatal(err)
 				mu.Unlock()
 
 				conn.WriteOK()
@@ -109,21 +91,13 @@ func main() {
 				}
 
 				mu.RLock()
-				val, ok := items[string(cmd.Args[1])]
+				data, ok := rdb.GetRDB(string(cmd.Args[1]))
 				mu.RUnlock()
 
 				if !ok {
 					conn.WriteNull()
 				} else {
-					if val.option != nil {
-						if (val.option.storedAt.Add(val.option.expiresIn)).Before(time.Now()) {
-							delete(items, string(cmd.Args[1]))
-							conn.WriteNull()
-							return
-						}
-					}
-
-					conn.WriteBulk(val.data)
+					conn.WriteBulk(data)
 				}
 			case "config":
 				if len(cmd.Args) != 3 {
