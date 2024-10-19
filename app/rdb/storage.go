@@ -99,3 +99,18 @@ func GetRDB(k string) ([]byte, bool) {
 
 	return val.data, ok
 }
+
+func GetRDBKeys() []string {
+	var keys []string
+	for k, val := range items {
+		if val.option != nil {
+			if time.Now().UnixMilli() > val.option.expiresAt {
+				delete(items, k)
+				continue
+			}
+		}
+		keys = append(keys, k)
+	}
+
+	return keys
+}

@@ -99,6 +99,25 @@ func main() {
 				} else {
 					conn.WriteBulk(data)
 				}
+			case "keys":
+				if len(cmd.Args) != 2 {
+					conn.WriteError("Invalid KEYS arg length")
+					return
+				}
+
+				if string(cmd.Args[1]) != "*" {
+					conn.WriteError("Only support KEYS * for now")
+					return
+				}
+
+				mu.RLock()
+				keys := rdb.GetRDBKeys()
+				if len(keys) == 0 {
+					conn.WriteNull()
+				} else {
+					conn.WriteArray(keys)
+				}
+				mu.RUnlock()
 			case "config":
 				if len(cmd.Args) != 3 {
 					conn.WriteError("Invalid CONFIG arg length")
